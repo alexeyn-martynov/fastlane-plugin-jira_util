@@ -17,6 +17,7 @@ module Fastlane
         project_name = params[:project_name]
         project_id   = params[:project_id]
         name         = params[:name]
+        new_name     = params[:new_name]
         release_date = params[:release_date]
         released     = true
 
@@ -41,10 +42,15 @@ module Fastlane
           raise "Version '#{name}' not found."
           return false
         end
+
+        if new_name.nil?
+          new_name = name
+        end
         version.save!({
-          "released" => released,
+          "released"    => released,
           "releaseDate" => release_date,
-          "projectId" => project_id
+          "projectId"   => project_id,
+          "name"        => new_name
         })
         version.fetch
         Actions.lane_context[SharedValues::RELEASE_JIRA_VERSION_VERSION_ID] = version.id
@@ -72,21 +78,21 @@ module Fastlane
       def self.available_options
         [
           FastlaneCore::ConfigItem.new(key: :url,
-                                      env_name: "FL_RELEASE_JIRA_VERSION_SITE",
+                                      env_name: "FL_JIRA_UTIL_SITE",
                                       description: "URL for Jira instance",
                                       type: String,
                                       verify_block: proc do |value|
                                         UI.user_error!("No url for Jira given, pass using `url: 'url'`") unless value and !value.empty?
                                       end),
           FastlaneCore::ConfigItem.new(key: :username,
-                                       env_name: "FL_RELEASE_JIRA_VERSION_USERNAME",
+                                       env_name: "FL_JIRA_UTIL_USERNAME",
                                        description: "Username for JIRA instance",
                                        type: String,
                                        verify_block: proc do |value|
                                          UI.user_error!("No username given, pass using `username: 'jira_user'`") unless value and !value.empty?
                                        end),
           FastlaneCore::ConfigItem.new(key: :password,
-                                       env_name: "FL_RELEASE_JIRA_VERSION_PASSWORD",
+                                       env_name: "FL_JIRA_UTIL_PASSWORD",
                                        description: "Password for Jira",
                                        type: String,
                                        verify_block: proc do |value|
@@ -117,14 +123,19 @@ module Fastlane
                                          UI.user_error!("No Project ID given, pass using `project_id: 'PROJID'`") unless value and !value.empty?
                                        end),
           FastlaneCore::ConfigItem.new(key: :name,
-                                       env_name: "FL_RELEASE_JIRA_VERSION_NAME",
+                                       env_name: "FL_JIRA_UTIL_RELEASE_VERSION_NAME",
                                        description: "The name of the version. E.g. 1.0.0",
                                        type: String,
                                        verify_block: proc do |value|
                                          UI.user_error!("No version name given, pass using `name: '1.0.0'`") unless value and !value.empty?
                                        end),
+          FastlaneCore::ConfigItem.new(key: :new_name,
+                                       env_name: "FL_JIRA_UTIL_RELEASE_VERSION_NEW_NAME",
+                                       description: "The new name of the version. It'll be released and renamed. E.g. 1.0.0",
+                                       type: String,
+                                       optional: true),
           FastlaneCore::ConfigItem.new(key: :release_date,
-                                       env_name: "FL_CREATE_JIRA_VERSION_RELEASE_DATE",
+                                       env_name: "FL_JIRA_UTIL_RELEASE_VERSION_RELEASE_DATE",
                                        description: "The date this version ended on",
                                        type: String,
                                        is_string: true,

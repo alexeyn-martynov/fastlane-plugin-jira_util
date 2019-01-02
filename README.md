@@ -1,20 +1,20 @@
-# jira_versions plugin
+# jira_util fastlane plugin
 
-[![fastlane Plugin Badge](https://rawcdn.githack.com/fastlane/fastlane/master/fastlane/assets/plugin-badge.svg)](https://rubygems.org/gems/fastlane-plugin-jira_versions)
+[![fastlane Plugin Badge](https://rawcdn.githack.com/fastlane/fastlane/master/fastlane/assets/plugin-badge.svg)](https://rubygems.org/gems/fastlane-plugin-jira_util)
 
 ## Getting Started
 
-This project is a [fastlane](https://github.com/fastlane/fastlane) plugin. To get started with `fastlane-plugin-jira_versions`, add it to your project by running:
+This project is a [fastlane](https://github.com/fastlane/fastlane) plugin. To get started with `fastlane-plugin-jira_util`, add it to your project by running:
 
 ```bash
-fastlane add_plugin jira_versions
+fastlane add_plugin jira_util
 ```
 
-## About jira_versions
+## About jira_util
 
 Manage your JIRA project's releases/versions with this plugin.
 
-Currently, jira_versions comes with two actions, `create_jira_version` and `release_jira_version`. The first will create a new version in your JIRA project and the second will release a version.
+Currently, jira_util comes with three actions, `create_jira_issue`, `create_jira_version` and `release_jira_version`. The first will create a new issue in your JIRA project, second will create a new version and the third will release a version.
 
 ## Create Version Example
 
