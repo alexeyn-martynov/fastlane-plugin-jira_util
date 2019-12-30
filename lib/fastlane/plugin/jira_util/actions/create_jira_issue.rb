@@ -1,8 +1,9 @@
 module Fastlane
   module Actions
     module SharedValues
-      CREATE_JIRA_ISSUE_ISSUE_ID  = :CREATE_JIRA_ISSUE_ISSUE_ID
-      CREATE_JIRA_ISSUE_ISSUE_KEY = :CREATE_JIRA_ISSUE_ISSUE_KEY
+      JIRA_UTIL_CREATE_JIRA_ISSUE_ISSUE_ID  = :JIRA_UTIL_CREATE_JIRA_ISSUE_ISSUE_ID
+      JIRA_UTIL_CREATE_JIRA_ISSUE_ISSUE_KEY = :JIRA_UTIL_CREATE_JIRA_ISSUE_ISSUE_KEY
+      JIRA_UTIL_CREATE_JIRA_ISSUE_ISSUE_LINK = :JIRA_UTIL_CREATE_JIRA_ISSUE_ISSUE_LINK
     end
 
     class CreateJiraIssueAction < Action
@@ -20,6 +21,9 @@ module Fastlane
         summary           = params[:summary]
         version_name      = params[:version_name]
         description       = params[:description]
+        assignee          = params[:assignee]
+        components        = params[:components]
+        fields            = params[:fields]
 
         options = {
           username:     username,
@@ -35,43 +39,65 @@ module Fastlane
         project = client.Project.find(project_name)
 
         project_id = project.id
-        if project_id.nil?
-          raise "Project '#{project_name}' not found."
-          return false
-        end
-
+        raise ArgumentError.new("Project '#{project_name}' not found.") if project_id.nil?
+        
         issue_type = project.issueTypes.find { |type| type['name'] == issue_type_name }
-        if issue_type.nil?
-          raise "Issue type '#{issue_type_name}' not found."
-          return false
+        raise ArgumentError.new("Issue type '#{issue_type_name}' not found.") if issue_type.nil?
+        
+        version = project.versions.find { |version| version.name == version_name }
+        raise ArgumentError.new("Version '#{version_name}' not found.") if version.nil?
+
+        UI.message("Check jira issue assignee = #{assignee}")
+        unless assignee.nil?
+          # INFO: Need to set assegnee. Check if user exists
+          begin
+            assignee_user = client.User.find(assignee)
+          rescue JIRA::HTTPError
+            raise ArgumentError.new("Error when trying to find assignee '#{assignee}'.")
+          end
+        end
+        
+        issue_fields = {
+          "issuetype" => {"id" => issue_type['id']},
+          "project"  => { "id" => project_id },
+          "versions" => [{"id" => version.id }],
+          "summary"  => summary,
+          "description" => description
+        }
+
+        unless assignee.nil?
+          issue_fields[:assignee] = {'name' => assignee}
         end
 
-        version = project.versions.find { |version| version.name == version_name }
-        if version.nil?
-          raise "Version '#{version_name}' not found."
-          return false
+        unless components.nil?
+          components_fields = components.map { |component_name|  { :name => component_name }}
+          if components_fields.count > 0
+            issue_fields[:components] = components_fields
+          end
         end
+
+        unless fields.nil?
+          issue_fields.merge!(fields) {|key, old, new| old}
+        end
+
+        UI.message("create jira issue with fields = #{issue_fields}")
 
         issue = client.Issue.build
         issue.save!({
-          "fields" => {
-            "issuetype" => {"id" => issue_type['id']},
-            "project"  => { "id" => project_id },
-            "versions" => [{"id" => version.id }],
-            "summary"  => summary,
-            "description" => description
-          }
+          "fields" => issue_fields
         })
 
         issue.fetch
-        Actions.lane_context[SharedValues::CREATE_JIRA_ISSUE_ISSUE_ID] = issue.id
-        Actions.lane_context[SharedValues::CREATE_JIRA_ISSUE_ISSUE_KEY] = issue.key
+        issue_link = URI.join(params[:url], '/browse/', "#{issue.key}/").to_s
+        Actions.lane_context[SharedValues::JIRA_UTIL_CREATE_JIRA_ISSUE_ISSUE_ID] = issue.id
+        Actions.lane_context[SharedValues::JIRA_UTIL_CREATE_JIRA_ISSUE_ISSUE_KEY] = issue.key
+        Actions.lane_context[SharedValues::JIRA_UTIL_CREATE_JIRA_ISSUE_ISSUE_LINK] = issue_link
         issue.id
       rescue JIRA::HTTPError
-        UI.user_error!("Failed to create new JIRA issue: #{$!.response.body}")
+        UI.user_error!("Failed to create JIRA issue: #{$!.response.body}")
         false
       rescue
-        UI.user_error!("Failed to create new JIRA issue: #{$!}")
+        UI.user_error!("Failed to create JIRA issue: #{$!}")
         false
       end
 
@@ -90,10 +116,10 @@ module Fastlane
       def self.available_options
         [
           FastlaneCore::ConfigItem.new(key: :url,
-                                      env_name: "FL_JIRA_UTIL_SITE",
-                                      description: "URL for Jira instance",
-                                      type: String,
-                                      verify_block: proc do |value|
+                                       env_name: "FL_JIRA_UTIL_SITE",
+                                       description: "URL for Jira instance",
+                                       type: String,
+                                       verify_block: proc do |value|
                                         UI.user_error!("No url for Jira given, pass using `url: 'url'`") unless value and !value.empty?
                                       end),
           FastlaneCore::ConfigItem.new(key: :username,
@@ -111,7 +137,7 @@ module Fastlane
                                          UI.user_error!("No password given, pass using `password: 'T0PS3CR3T'`") unless value and !value.empty?
                                        end),
           FastlaneCore::ConfigItem.new(key: :project_name,
-                                       env_name: "FL_CREATE_JIRA_ISSUE_PROJECT_NAME",
+                                       env_name: "FL_JIRA_UTIL_PROJECT_NAME",
                                        description: "Project ID for the JIRA project. E.g. the short abbreviation in the JIRA ticket tags",
                                        type: String,
                                        verify_block: proc do |value|
@@ -142,14 +168,27 @@ module Fastlane
                                        env_name: "FL_CREATE_JIRA_ISSUE_DESCRIPTION",
                                        description: "The description text of the issue. E.g. This is important issue",
                                        type: String,
+                                       optional: true),
+          FastlaneCore::ConfigItem.new(key: :assignee,
+                                       description: "The assignee user name. E.g. smith",
+                                       type: String,
+                                       optional: true),
+          FastlaneCore::ConfigItem.new(key: :components,
+                                       description: "Array of component names (e.g. ['App', 'Installer'])",
+                                       type: Array,
+                                       optional: true),
+          FastlaneCore::ConfigItem.new(key: :fields,
+                                       description: "Hash with arbitrary JIRA fields. You can use this to set custom fields. Example: { 'customfield_123' => 'Test' }",
+                                       type: Hash,
                                        optional: true)
         ]
       end
 
       def self.output
         [
-          ['CREATE_JIRA_ISSUE_ISSUE_ID', 'The id for the newly created JIRA issue'],
-          ['CREATE_JIRA_ISSUE_ISSUE_KEY', 'The key (e.g. MYPOJ-123) for the newly created JIRA issue']
+          ['JIRA_UTIL_CREATE_JIRA_ISSUE_ISSUE_ID', 'The id for the newly created JIRA issue'],
+          ['JIRA_UTIL_CREATE_JIRA_ISSUE_ISSUE_KEY', 'The key (e.g. MYPOJ-123) for the newly created JIRA issue'],
+          ['JIRA_UTIL_CREATE_JIRA_ISSUE_ISSUE_LINK', 'The jira link to created issue (https://mycompany.jira.com/browse/MYPOJ-123)']
         ]
       end
 

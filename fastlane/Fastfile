@@ -1,26 +1,120 @@
 desc "Create a new JIRA version for the next build"
 lane :create_version do
   version_id = create_jira_version(
+    # Tip: You can use FL_JIRA_UTIL_SITE environment variable
     url: 'https://jira.yourdomain.com',
+    # Tip: You can use FL_JIRA_UTIL_USERNAME environment variable
     username: 'your_jira_username',
-    # Tip: Use the FL_CREATE_JIRA_VERSION_PASSWORD variable to
-    # prevent hardcoding a password in your Fastfile
-    password: 'your_jira_password', 
+    # Tip: You can use FL_JIRA_UTIL_PASSWORD environment variable
+    password: 'jira token or password',
+    # Tip: You can use FL_JIRA_UTIL_PROJECT_NAME environment variable
     project_name: 'JIRA', # This is the tag that prefixes your JIRA tickets
-    name: "iOS 1.2.3",
-    description: 'Fastlane auto-created version'
+    name: "NEXT_RELEASE_VERSION",
+    description: 'Fastlane auto-created version',
+    update_if_exists: true
   )
+
+  UI.message "Created version id: #{Actions.lane_context[SharedValues::JIRA_UTIL_CREATE_JIRA_VERSION_VERSION_ID]}"
 end
 
 desc "Releases a JIRA version"
 lane :release_version do
   version_id = release_jira_version(
+    # Tip: You can use FL_JIRA_UTIL_SITE environment variable
     url: 'https://jira.yourdomain.com',
+    # Tip: You can use FL_JIRA_UTIL_USERNAME environment variable
     username: 'your_jira_username',
-    # Tip: Use the FL_RELEASE_JIRA_VERSION_PASSWORD variable to
-    # prevent hardcoding a password in your Fastfile
-    password: 'your_jira_password', 
-    project_name: 'JIRA', # This is the tag that prefixes your JIRA tickets
-    name: "iOS 1.2.2",
+    # Tip: You can use FL_JIRA_UTIL_PASSWORD environment variable
+    password: 'jira token or password',
+    # Tip: You can use FL_JIRA_UTIL_PROJECT_NAME environment variable
+    project_name: 'JIRA',
+    name: "NEXT_RELEASE_VERSION",
+    new_name: "1.0.0"
   )
 end
+
+desc "Create a JIRA issue"
+lane :create_issue do
+  create_jira_issue(
+    # Tip: You can use FL_JIRA_UTIL_SITE environment variable
+    url: 'https://jira.yourdomain.com',
+    # Tip: You can use FL_JIRA_UTIL_USERNAME environment variable
+    username: 'your_jira_username',
+    # Tip: You can use FL_JIRA_UTIL_PASSWORD environment variable
+    password: 'jira token or password', 
+    # Tip: You can use FL_JIRA_UTIL_PROJECT_NAME environment variable
+    project_name: 'JIRA',
+    version_name: 'NEXT_RELEASE_VERSION',
+    issue_type_name: 'Build',
+    summary: 'Test',
+    description: 'Test',
+    assignee: 'another_jira_username',
+    components: ['App', 'Installer'],
+    fields: { :customfield_11104 => 'Test' }
+  )
+end
+
+desc "Find a JIRA version"
+lane :get_version do
+  get_jira_version(
+    # Tip: You can use FL_JIRA_UTIL_SITE environment variable
+    url: 'https://jira.yourdomain.com',
+    # Tip: You can use FL_JIRA_UTIL_USERNAME environment variable
+    username: 'your_jira_username',
+    # Tip: You can use FL_JIRA_UTIL_PASSWORD environment variable
+    password: 'jira token or password', 
+    # Tip: You can use FL_JIRA_UTIL_PROJECT_NAME environment variable
+    project_name: 'JIRA',
+    # Find version by name
+    name: 'NEXT_RELEASE_VERSION'
+    # Or by id
+    #id: "45322"
+  )
+
+  UI.message "Get version result: #{Actions.lane_context[SharedValues::JIRA_UTIL_GET_JIRA_VERSION_RESULT]}"
+end
+
+desc "Update JIRA version"
+lane :update_version do
+  update_jira_version(
+    # Tip: You can use FL_JIRA_UTIL_SITE environment variable
+    url: 'https://jira.yourdomain.com',
+    # Tip: You can use FL_JIRA_UTIL_USERNAME environment variable
+    username: 'your_jira_username',
+    # Tip: You can use FL_JIRA_UTIL_PASSWORD environment variable
+    password: 'jira token or password', 
+    # Tip: You can use FL_JIRA_UTIL_PROJECT_NAME environment variable
+    project_name: 'JIRA',
+    # Use name to find version
+    name: 'NEXT_RELEASE_VERSION',
+    # Or you can use id
+    #id: '79552',
+    new_name: 'NEXT_RELEASE_VERSION_2',
+    description: 'Updated this vesrsion',
+    released: false,
+    start_date: "2016-05-20"
+  )
+
+  UI.message "Updated version id: #{Actions.lane_context[SharedValues::JIRA_UTIL_UPDATE_JIRA_VERSION_VERSION_ID]}"
+end
+
+desc "Get JIRA release report link"
+lane :release_report_link do
+    get_jira_release_report_link(
+        # Tip: You can use FL_JIRA_UTIL_SITE environment variable
+        url: 'https://jira.yourdomain.com',
+        # Tip: You can use FL_JIRA_UTIL_USERNAME environment variable
+        username: 'your_jira_username',
+        # Tip: You can use FL_JIRA_UTIL_PASSWORD environment variable
+        password: 'jira token or password', 
+        # Tip: You can use FL_JIRA_UTIL_PROJECT_NAME environment variable
+        project_name: 'JIRA',
+        # Create link for version by name
+        name: 'NEXT_RELEASE_VERSION'
+        # Or by id
+        #id: "45322"
+    )
+
+    UI.message "Release report link: #{Actions.lane_context[SharedValues::JIRA_UTIL_GET_JIRA_RELEASE_REPORT_LINK_RESULT]}"
+end
+

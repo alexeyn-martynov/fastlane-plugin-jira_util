@@ -1,27 +1,22 @@
 module Fastlane
   module Actions
     module SharedValues
-      JIRA_UTIL_CREATE_JIRA_VERSION_VERSION_ID = :JIRA_UTIL_CREATE_JIRA_VERSION_VERSION_ID
+      JIRA_UTIL_GET_JIRA_VERSION_RESULT = :JIRA_UTIL_GET_JIRA_VERSION_RESULT
     end
 
-    class CreateJiraVersionAction < Action
+    class GetJiraVersionAction < Action
       def self.run(params)
         Actions.verify_gem!('jira-ruby')
         require 'jira-ruby'
 
-        site              = params[:url]
-        context_path      = ""
-        auth_type         = :basic
-        username          = params[:username]
-        password          = params[:password]
-        project_name      = params[:project_name]
-        project_id        = params[:project_id]
-        name              = params[:name]
-        description       = params[:description]
-        archived          = params[:archived]
-        released          = params[:released]
-        start_date        = params[:start_date]
-        update_if_exists  = params[:update_if_exists]
+        site         = params[:url]
+        context_path = ""
+        auth_type    = :basic
+        username     = params[:username]
+        password     = params[:password]
+        project_name = params[:project_name]
+        project_id   = params[:project_id]
+        released     = true
 
         options = {
           username:     username,
@@ -40,40 +35,26 @@ module Fastlane
         end
         raise ArgumentError.new("Project not found.") if project_id.nil?
 
-        if start_date.nil?
-          start_date = Date.today.to_s
+        version = nil
+        if !params[:id].nil?
+          version = project.versions.find { |version| version.id == params[:id] }
+        elsif !params[:name].nil?
+          version = project.versions.find { |version| version.name == params[:name] }
         end
 
-        version = project.versions.find { |version| version.name == name }
-        if version.nil?
-          version = client.Version.build
-          version.save!({
-            "description" => description,
-            "name" => name,
-            "archived" => archived,
-            "released" => released,
-            "startDate" => start_date,
-            "projectId" => project_id
-          })
-        elsif update_if_exists
-          version.save!({
-            "description" => description,
-            "archived" => archived,
-            "released" => released,
-            "startDate" => start_date,
-          })
+        version_attrs = if !version.nil? then
+          Helper::JiraUtilHelper.transform_keys_to_symbols(version.attrs)
         else
-          raise RuntimeError.new("Version with such name already exists.")
+          nil
         end
 
-        version.fetch
-        Actions.lane_context[SharedValues::JIRA_UTIL_CREATE_JIRA_VERSION_VERSION_ID] = version.id
-        version.id
-      rescue JIRA::HTTPError
-        UI.user_error!("Failed to create JIRA issue: #{$!.response.body}")
+        Actions.lane_context[SharedValues::JIRA_UTIL_GET_JIRA_VERSION_RESULT] = version_attrs
+        version_attrs
+      rescue RuntimeError
+        UI.user_error!("#{$!}")
         nil
-      rescue
-        UI.user_error!("Failed to create JIRA issue: #{$!}")
+      rescue JIRA::HTTPError
+        UI.user_error!("Failed to find JIRA version: #{$!.response.body}")
         nil
       end
 
@@ -82,11 +63,11 @@ module Fastlane
       #####################################################
 
       def self.description
-        "Creates a new version in your JIRA project"
+        "Finds project version in your JIRA project by id or by name"
       end
 
       def self.details
-        "Use this action to create a new version in JIRA"
+        "Use this action to find a version in JIRA"
       end
 
       def self.available_options
@@ -136,53 +117,42 @@ module Fastlane
                                        verify_block: proc do |value|
                                          UI.user_error!("No Project ID given, pass using `project_id: 'PROJID'`") unless value and !value.empty?
                                        end),
-          FastlaneCore::ConfigItem.new(key: :name,
-                                       is_string: true,
+          FastlaneCore::ConfigItem.new(key: :id,
+                                       description: "JIRA version id. E.g. 123456",
                                        optional: true,
-                                       description: "The name of the version. E.g. 1.0.0",
+                                       conflicting_options: [ :name ],
+                                       conflict_block: proc do |value|
+                                         UI.user_error!("You can't use 'id' and 'name' options in one run")
+                                       end,
                                        verify_block: proc do |value|
-                                         UI.user_error!("No version name given, pass using `name: '1.0.0'`") unless value and !value.empty?
+                                         UI.user_error!("Empty verison id") unless !value.nil? and !value.empty?
                                        end),
-          FastlaneCore::ConfigItem.new(key: :description,
-                                       is_string: true,
-                                       optional: true,
-                                       description: "The description of the JIRA project version",
-                                       default_value: ''),
-          FastlaneCore::ConfigItem.new(key: :archived,
+          FastlaneCore::ConfigItem.new(key: :name,
+                                       description: "JIRA version name",
                                        is_string: false,
                                        optional: true,
-                                       description: "Whether the version should be archived",
-                                       default_value: false),
-          FastlaneCore::ConfigItem.new(key: :released,
-                                       is_string: false,
-                                       optional: true,
-                                       description: "Whether the version should be released",
-                                       default_value: false),
-          FastlaneCore::ConfigItem.new(key: :start_date,
-                                       is_string: true,
-                                       optional: true,
-                                       description: "The date this version will start on",
-                                       default_value: Date.today.to_s),
-          FastlaneCore::ConfigItem.new(key: :update_if_exists,
-                                       is_string: false,
-                                       optional: true,
-                                       description: "If version with 'name' exists it will be updated",
-                                       default_value: false),
+                                       conflicting_options: [:id],
+                                       conflict_block: proc do |value|
+                                          UI.user_error!("You can't use 'id' and 'name' options in one run")
+                                       end,
+                                       verify_block: proc do |value|
+                                          UI.user_error!("Empty verison name") unless !value.nil? and !value.empty?
+                                       end)
         ]
       end
 
       def self.output
         [
-          ['JIRA_UTIL_CREATE_JIRA_VERSION_VERSION_ID', 'The versionId for the newly created JIRA project version']
+          ['JIRA_UTIL_GET_JIRA_VERSION_RESULT', 'Hash containing all version attributes']
         ]
       end
 
       def self.return_value
-        'The versionId for the newly create JIRA project version'
+        'Hash containing all version attributes'
       end
 
       def self.authors
-        [ "https://github.com/SandyChapman", "https://github.com/alexeyn-martynov" ]
+        [ "https://github.com/alexeyn-martynov" ]
       end
 
       def self.is_supported?(platform)

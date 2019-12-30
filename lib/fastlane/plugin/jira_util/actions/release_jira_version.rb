@@ -36,6 +36,7 @@ module Fastlane
           project = client.Project.find(project_name)
           project_id = project.id
         end
+        raise ArgumentError.new("Project not found.") if project_id.nil?
 
         version = project.versions.find { |version| version.name == name }
         if version.nil?
@@ -52,6 +53,7 @@ module Fastlane
           "projectId"   => project_id,
           "name"        => new_name
         })
+        
         version.fetch
         Actions.lane_context[SharedValues::RELEASE_JIRA_VERSION_VERSION_ID] = version.id
         version.id
@@ -59,7 +61,7 @@ module Fastlane
         UI.user_error!("#{$!}")
         false
       rescue JIRA::HTTPError
-        UI.user_error!("Failed to release new JIRA version: #{$!.response.body}")
+        UI.user_error!("Failed to release JIRA version: #{$!.response.body}")
         false
       end
 
@@ -99,7 +101,7 @@ module Fastlane
                                          UI.user_error!("No password given, pass using `password: 'T0PS3CR3T'`") unless value and !value.empty?
                                        end),
           FastlaneCore::ConfigItem.new(key: :project_name,
-                                       env_name: "FL_RELEASE_JIRA_VERSION_PROJECT_NAME",
+                                       env_name: "FL_JIRA_UTIL_PROJECT_NAME",
                                        description: "Project ID for the JIRA project. E.g. the short abbreviation in the JIRA ticket tags",
                                        type: String,
                                        optional: true,
@@ -111,7 +113,7 @@ module Fastlane
                                          UI.user_error!("No Project ID given, pass using `project_id: 'PROJID'`") unless value and !value.empty?
                                        end),
           FastlaneCore::ConfigItem.new(key: :project_id,
-                                       env_name: "FL_RELEASE_JIRA_VERSION_PROJECT_ID",
+                                       env_name: "FL_JIRA_UTIL_PROJECT_ID",
                                        description: "Project ID for the JIRA project. E.g. the short abbreviation in the JIRA ticket tags",
                                        type: String,
                                        optional: true,

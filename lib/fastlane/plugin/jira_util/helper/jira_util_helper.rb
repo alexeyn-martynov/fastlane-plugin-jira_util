@@ -11,6 +11,11 @@ module Fastlane
       def self.show_message
         UI.message("Hello from the jira_util plugin helper!")
       end
+
+      def self.transform_keys_to_symbols(value)
+        return value if not value.is_a?(Hash)
+        return value.inject({}){|memo,(k,v)| memo[k.to_sym] = Helper::JiraUtilHelper.transform_keys_to_symbols(v); memo}
+      end
     end
   end
 end
